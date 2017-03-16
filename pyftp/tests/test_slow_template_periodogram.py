@@ -36,11 +36,11 @@ def test_vs_lombscargle():
     assert_allclose(power1, power2)
 
 
-@pytest.mark.parametrize('n', [1, 2, 3, 4])
-def test_zero_noise(n):
+@pytest.mark.parametrize('nharmonics', [1, 2, 3, 4])
+def test_zero_noise(nharmonics):
     # in the zero-noise perfect template case, the true frequency should
     # have power = 1
-    template = generate_template(1)
+    template = generate_template(nharmonics)
     t, y, _ = generate_data(template, N=100, tmin=0, tmax=100, freq=0.1, dy=0)
     dy = None
     power = SlowTemplatePeriodogram(t, y, dy, template=template).power(0.1)
