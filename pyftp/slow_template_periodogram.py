@@ -43,13 +43,16 @@ class SlowTemplatePeriodogram(object):
         return np.sum((self.y - ymean) ** 2 / self.dy ** 2)
 
     def _minimize_chi2_at_single_freq(self, freq):
-        t_phase = (self.t * freq) % 1
-        def chi2(params):
-            phase, offset, amp = params
-            y_model = offset + amp * self.template(self.t * freq - phase)
-            return np.sum((y_model - self.y) ** 2 / self.dy ** 2)
-        params0 = [0, np.mean(self.y), np.std(self.y)]
-        return optimize.minimize(chi2, params0, method='l-bfgs-b')
+        # at each phase, use a linear model to find best [offset, amplitude]
+        # and then minimize this scalar function of phase
+        def chi2(phase):
+            shifted = self.template(self.t * freq - phase)
+            X = np.vstack([np.ones_like(shifted), shifted]).T
+            offset, amp = np.linalg.solve(np.dot(X.T, X),
+                                          np.dot(X.T, self.y))
+            y_model = offset + amp * shifted
+            return np.sum((self.y - y_model) ** 2 / self.dy ** 2)
+        return optimize.minimize_scalar(chi2)
 
     def power(self, freq):
         """Compute a template-based periodogram at the given frequencies
@@ -68,7 +71,7 @@ class SlowTemplatePeriodogram(object):
         results = list(map(self._minimize_chi2_at_single_freq, freq.flat))
         failures = sum([not res.success for res in results])
         if failures:
-            warnings.warn("{0}/{1} frequency values failed to "
-                          "converge".format(failures, len(freq)))
+            raise RuntimeError("{0}/{1} frequency values failed to converge"
+                               "".format(failures, freq.size)))
         chi2 = np.array([res.fun for res in results])
         return np.reshape(1 - chi2 / self._chi2_ref(), freq.shape)
