@@ -21,6 +21,7 @@ class Template(object):
             raise ValueError("c_n and s_n must be one-dimensional")
         self._computed = {}
 
+    # TODO: remove these aliases
     @property
     def cn(self):
         return self.c_n
@@ -30,7 +31,7 @@ class Template(object):
         return self.s_n
 
     @classmethod
-    def from_sampled(cls, y, nharmonics=0.9, **kwargs):
+    def from_sampled(cls, y, nharmonics=0.99, **kwargs):
         """Create a template from a regularly sampled function
 
         Parameters
@@ -82,3 +83,32 @@ class Template(object):
         n = np.arange(1, len(self.c_n) + 1)
         return (np.dot(np.cos(2 * np.pi * n * phase), self.c_n) +
                 np.dot(np.sin(2 * np.pi * n * phase), self.s_n))
+
+    def derivative(self, phase, n=1):
+        """Compute the n^th derivative of the template with respect to phase
+
+        Parameters
+        ----------
+        phase : array_like
+            The phase at which to evaluate the derivative
+        n : int
+            The order of the derivative
+
+        Returns
+        -------
+        deriv : ndarray
+            Derivative with the same shape as phase
+        """
+        phase = np.asarray(phase)[..., np.newaxis]
+
+        def dsin(x, n):
+            """n^th derivative of sine"""
+            return np.sin(x + 0.5 * n * np.pi)
+
+        two_pi_k = 2 * np.pi * np.arange(1, len(self.c_n) + 1)
+        return (np.dot(two_pi_k ** n * dsin(two_pi_k * phase, n + 1), self.c_n) +
+                np.dot(two_pi_k ** n * dsin(two_pi_k * phase, n), self.s_n))
+
+    def truncate(self, nharmonics):
+        """Return a new template truncated to the given number of harmonics"""
+        return self.__class__(self.c_n[:nharmonics], self.s_n[:nharmonics])
