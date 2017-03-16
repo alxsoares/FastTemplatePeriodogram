@@ -72,6 +72,6 @@ class SlowTemplatePeriodogram(object):
         failures = sum([not res.success for res in results])
         if failures:
             raise RuntimeError("{0}/{1} frequency values failed to converge"
-                               "".format(failures, freq.size)))
+                               "".format(failures, freq.size))
         chi2 = np.array([res.fun for res in results])
         return np.reshape(1 - chi2 / self._chi2_ref(), freq.shape)
