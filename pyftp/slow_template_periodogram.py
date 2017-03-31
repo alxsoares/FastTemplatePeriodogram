@@ -46,13 +46,28 @@ class SlowTemplatePeriodogram(object):
         # at each phase, use a linear model to find best [offset, amplitude]
         # and then minimize this scalar function of phase
         def chi2(phase):
-            shifted = self.template(self.t * freq - phase)
-            X = np.vstack([np.ones_like(shifted), shifted]).T
-            offset, amp = np.linalg.solve(np.dot(X.T, X),
-                                          np.dot(X.T, self.y))
-            y_model = offset + amp * shifted
-            return np.sum((self.y - y_model) ** 2 / self.dy ** 2)
-        return optimize.minimize_scalar(chi2)
+            tmp = self.template(self.t * freq - phase)
+            dtmp = self.template.derivative(self.t * freq - phase)
+            X = np.vstack([np.ones_like(tmp), tmp]).T
+            dX = np.vstack([np.ones_like(dtmp), dtmp]).T
+            XTX = np.dot(X.T, X)
+            Dy = self.y - np.dot(X, np.linalg.solve(XTX, np.dot(X.T, self.y)))
+            ODy = np.dot(X, np.linalg.solve(XTX, np.dot(dX.T, Dy)))
+            OTy = np.dot(dX, np.linalg.solve(XTX, np.dot(X.T, self.y)))
+            DTOTy = OTy - np.dot(X, np.linalg.solve(XTX, np.dot(X.T, OTy)))
+            chi2 = np.sum((Dy / self.dy) ** 2)
+            dchi2 = -2 * np.sum(((Dy * (DTOTy + ODy)) / self.dy) ** 2)
+            return chi2, dchi2
+        return optimize.minimize(chi2, [0], jac=True, method='slsqp')
+        # def chi2(phase):
+        #     tmp = self.template(self.t * freq - phase)
+        #     X = np.vstack([np.ones_like(tmp), tmp]).T
+        #     Dy = self.y - np.dot(X, np.linalg.solve(np.dot(X.T, X),
+        #                                             np.dot(X.T, self.y)))
+        #     chi2 = np.sum((Dy / self.dy) ** 2)
+        #     return chi2
+        # # return optimize.minimize_scalar(chi2)
+        # return optimize.minimize(chi2, [0], method='slsqp')
 
     def power(self, freq):
         """Compute a template-based periodogram at the given frequencies
